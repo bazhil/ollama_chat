@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    # Uncomment the following lines if you have an NVIDIA GPU and want GPU acceleration
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1 # or 'all'
+    #           capabilities: [gpu]
+    # Set environment variables for Ollama if needed, e.g., OLLAMA_HOST
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    # Add a healthcheck (optional but recommended)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s # Give Ollama time to start and potentially download models
+
+  # Service to ensure the model is pulled after Ollama starts
+  ollama-init:
+    image: curlimages/curl:latest
+    container_name: ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy # Wait for Ollama to be healthy
+    # Command to pull the deepseek-r1 model
+    command: >
+      sh -c '
+        echo "Waiting for Ollama to be fully ready..." &&
+        sleep 10 && # Extra wait time just in case
+        echo "Pulling deepseek-r1 model..." &&
+        curl http://ollama:11434/api/pull -d "{\"name\": \"deepseek-r1\"}" &&
+        echo "Model pull command sent. Check Ollama logs for progress/completion."
+      '
+    restart: 'no' # Run only once
+
+  nextapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nextapp
+    ports:
+      - "9002:9002" # Map the internal port 9002 (from package.json dev script) to host 9002
+    depends_on:
+      ollama:
+        condition: service_healthy # Ensure Ollama is healthy before starting the app
+      ollama-init: # Ensure the model pull command has been issued
+        condition: service_completed_successfully
+    environment:
+      # Pass the Ollama host URL to the Next.js app
+      # This should match the service name and port defined above
+      - OLLAMA_HOST=http://ollama:11434
+      # Next.js specific environment variables if needed
+      - NODE_ENV=development # Or production for build/start
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - .:/app # Mount current directory to /app in the container
+      - /app/node_modules # Prevent host node_modules from overwriting container's
+      - /app/.next # Persist .next cache between runs (optional)
+    command: npm run dev # Command to start the Next.js dev server
+    restart: unless-stopped
+
+volumes:
+  ollama_data: # Persistent volume for Ollama models and data

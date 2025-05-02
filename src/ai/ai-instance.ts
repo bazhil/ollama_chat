@@ -1,12 +1,16 @@
 import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
+// import {googleAI} from '@genkit-ai/googleai'; // Remove Google AI import
 
 export const ai = genkit({
   promptDir: './prompts',
   plugins: [
-    googleAI({
-      apiKey: process.env.GOOGLE_GENAI_API_KEY,
-    }),
+    // Remove googleAI plugin instance
+    // googleAI({
+    //   apiKey: process.env.GOOGLE_GENAI_API_KEY,
+    // }),
   ],
-  model: 'googleai/gemini-2.0-flash',
+  // Remove default model as it's not needed for direct Ollama connection via fetch
+  // model: 'googleai/gemini-2.0-flash',
+  logLevel: 'debug', // Optional: Set log level for debugging
+  enableTracing: true, // Optional: Enable tracing if needed
 });
