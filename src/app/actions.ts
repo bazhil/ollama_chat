@@ -82,7 +82,12 @@ export async function sendMessageToOllama(userInput: string): Promise<ActionResu
         return { success: false, error: "Received an invalid response structure from Ollama." };
     }
 
-    return { success: true, message: parsedData.data.message.content };
+    // Remove <think> and </think> tags from the message content
+    const cleanedContent = parsedData.data.message.content
+      .replace(/<think>/g, '')
+      .replace(/<\/think>/g, '');
+
+    return { success: true, message: cleanedContent };
 
   } catch (error) {
     console.error('Network or fetch error:', error);
